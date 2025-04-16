@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理システム利用者マニュアル</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        h3 {
+            color: #3498db;
+            margin-top: 25px;
+        }
+        h4 {
+            color: #555;
+            margin-top: 20px;
+        }
+        code {
+            background-color: #f8f8f8;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+        }
+        ul, ol {
+            padding-left: 25px;
+        }
+        .tip {
+            background-color: #e8f4fd;
+            border-left: 5px solid #3498db;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        .warning {
+            background-color: #fff8e8;
+            border-left: 5px solid #f39c12;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        .example {
+            background-color: #f5f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .example h4 {
+            margin-top: 0;
+            color: #16a085;
+        }
+    </style>
+</head>
+<body>
+    <h1>タスク管理システム利用者マニュアル</h1>
+
+    <h2>はじめに</h2>
+    <p>タスク管理システム（taskman）は、目標管理、タスク管理、プロセス管理を一元化したコマンドラインツールです。このシステムを使用することで、プロジェクトの目標設定から具体的なタスク管理、さらにはプロセスの定義と実行までを効率的に行うことができます。</p>
+
+    <h2>インストールと初期設定</h2>
+    
+    <h3>前提条件</h3>
+    <ul>
+        <li>Python 3.9以上</li>
+        <li>pip（Pythonパッケージマネージャー）</li>
+    </ul>
+
+    <h3>インストール手順</h3>
+    <ol>
+        <li>システムをインストールします：
+            <pre><code>pip install taskman</code></pre>
+        </li>
+        <li>データベースを初期化します：
+            <pre><code>python -m taskman db init</code></pre>
+        </li>
+        <li>（オプション）サンプルデータを作成します：
+            <pre><code>python -m taskman db seed</code></pre>
+        </li>
+    </ol>
+
+    <h2>基本的な使い方</h2>
+    <p>タスク管理システムは次のようなコマンド体系になっています：</p>
+    <pre><code>python -m taskman [コマンド] [サブコマンド] [オプション]</code></pre>
+
+    <p>ヘルプを表示するには：</p>
+    <pre><code>python -m taskman --help</code></pre>
+
+    <p>特定のコマンドのヘルプを表示するには：</p>
+    <pre><code>python -m taskman [コマンド] --help</code></pre>
+
+    <h2>主要機能の使い方</h2>
+
+    <h3>1. 目標管理（objective）</h3>
+    <p>目標は、達成したい成果を表します。目標は階層構造を持ち、親目標と子目標（サブ目標）の関係を定義できます。</p>
+
+    <h4>目標の作成</h4>
+    <pre><code>python -m taskman objective create --title "2023年第4四半期の売上目標" --metric "売上高" --target 10000000 --current 0</code></pre>
+
+    <h4>目標の一覧表示</h4>
+    <pre><code>python -m taskman objective list</code></pre>
+
+    <h4>目標の詳細表示</h4>
+    <pre><code>python -m taskman objective show 1</code></pre>
+
+    <h4>目標の更新</h4>
+    <pre><code>python -m taskman objective update 1 --current 5000000</code></pre>
+
+    <h4>目標のステータス変更</h4>
+    <pre><code>python -m taskman objective status 1 進行中</code></pre>
+
+    <h4>目標の削除</h4>
+    <pre><code>python -m taskman objective delete 1</code></pre>
+
+    <h3>2. タスク管理（task）</h3>
+    <p>タスクは、目標を達成するための具体的な作業を表します。</p>
+
+    <h4>タスクの作成</h4>
+    <pre><code>python -m taskman task create --name "タスク名" --description "タスクの説明" --priority 中 --status 未着手 --deadline 2023-12-31</code></pre>
+
+    <h4>タスクの一覧表示</h4>
+    <pre><code>python -m taskman task list</code></pre>
+
+    <h4>タスクの詳細表示</h4>
+    <pre><code>python -m taskman task show 1</code></pre>
+
+    <h4>タスクの更新</h4>
+    <pre><code>python -m taskman task update 1 --name "更新後のタスク名"</code></pre>
+
+    <h4>タスクのステータス変更</h4>
+    <pre><code>python -m taskman task status 1 進行中</code></pre>
+
+    <h4>タスクの削除</h4>
+    <pre><code>python -m taskman task delete 1</code></pre>
+
+    <h3>3. タスクステップ管理（step）</h3>
+    <p>タスクステップは、タスクを細分化した具体的な作業手順を表します。</p>
+
+    <h4>ステップの作成</h4>
+    <pre><code>python -m taskman step create --task 1 --description "最初のステップ" --sequence 1</code></pre>
+
+    <h4>ステップの一覧表示</h4>
+    <pre><code>python -m taskman step list --task 1</code></pre>
+
+    <h4>ステップの詳細表示</h4>
+    <pre><code>python -m taskman step show 1</code></pre>
+
+    <h4>ステップの更新</h4>
+    <pre><code>python -m taskman step update 1 --description "更新後のステップ"</code></pre>
+
+    <h4>ステップの並べ替え</h4>
+    <pre><code>python -m taskman step reorder --task 1</code></pre>
+
+    <h4>ステップの削除</h4>
+    <pre><code>python -m taskman step delete 1</code></pre>
+
+    <h3>4. プロセス管理（process）</h3>
+    <p>プロセスは、特定の目的を達成するための一連の手順を定義します。</p>
+
+    <h4>プロセスの作成</h4>
+    <pre><code>python -m taskman process create --name "顧客対応プロセス" --description "新規顧客への対応手順"</code></pre>
+
+    <h4>プロセスの一覧表示</h4>
+    <pre><code>python -m taskman process list</code></pre>
+
+    <h4>プロセスの詳細表示</h4>
+    <pre><code>python -m taskman process show 1</code></pre>
+
+    <h4>プロセスの更新</h4>
+    <pre><code>python -m taskman process update 1 --name "更新後のプロセス名"</code></pre>
+
+    <h4>プロセスのステータス変更</h4>
+    <pre><code>python -m taskman process status 1 有効</code></pre>
+
+    <h4>プロセスの削除</h4>
+    <pre><code>python -m taskman process delete 1</code></pre>
+
+    <h3>5. ワークフロー管理（workflow）</h3>
+    <p>ワークフローは、プロセス間の関係とフローを定義します。</p>
+
+    <h4>ワークフローの作成</h4>
+    <pre><code>python -m taskman workflow create --process 1 --from 2 --to 3 --condition-type 常時</code></pre>
+
+    <h4>ワークフローの一覧表示</h4>
+    <pre><code>python -m taskman workflow list</code></pre>
+
+    <h4>ワークフローの詳細表示</h4>
+    <pre><code>python -m taskman workflow show 1</code></pre>
+
+    <h4>ワークフローの更新</h4>
+    <pre><code>python -m taskman workflow update 1 --condition-type 条件付き --condition "task.status == '完了'"</code></pre>
+
+    <h4>ワークフローの削除</h4>
+    <pre><code>python -m taskman workflow delete 1</code></pre>
+
+    <h3>6. プロセスインスタンス管理（instance）</h3>
+    <p>プロセスインスタンスは、定義されたプロセスの実行インスタンスを表します。</p>
+
+    <h4>プロセスインスタンスの作成</h4>
+    <pre><code>python -m taskman instance create --process 1 --name "顧客A対応"</code></pre>
+
+    <h4>プロセスインスタンスの一覧表示</h4>
+    <pre><code>python -m taskman instance list</code></pre>
+
+    <h4>プロセスインスタンスの詳細表示</h4>
+    <pre><code>python -m taskman instance show 1</code></pre>
+
+    <h4>プロセスインスタンスのステータス変更</h4>
+    <pre><code>python -m taskman instance status 1 進行中</code></pre>
+
+    <h4>プロセスインスタンスの削除</h4>
+    <pre><code>python -m taskman instance delete 1</code></pre>
+
+    <h3>7. タスクインスタンス管理（task-instance）</h3>
+    <p>タスクインスタンスは、プロセスインスタンスに関連付けられた具体的なタスクの実行を表します。</p>
+
+    <h4>タスクインスタンスの作成</h4>
+    <pre><code>python -m taskman task-instance create --task 1 --instance 1</code></pre>
+
+    <h4>タスクインスタンスの一覧表示</h4>
+    <pre><code>python -m taskman task-instance list</code></pre>
+
+    <h4>タスクインスタンスの詳細表示</h4>
+    <pre><code>python -m taskman task-instance show 1</code></pre>
+
+    <h4>タスクインスタンスの更新</h4>
+    <pre><code>python -m taskman task-instance update 1 --notes "進捗メモ"</code></pre>
+
+    <h4>タスクインスタンスのステータス変更</h4>
+    <pre><code>python -m taskman task-instance status 1 進行中</code></pre>
+
+    <h4>タスクインスタンスの削除</h4>
+    <pre><code>python -m taskman task-instance delete 1</code></pre>
+
+    <h2>データベース管理</h2>
+
+    <h3>データベースの初期化</h3>
+    <pre><code>python -m taskman db init</code></pre>
+
+    <h3>データベースのリセット</h3>
+    <pre><code>python -m taskman db reset</code></pre>
+
+    <h3>サンプルデータの作成</h3>
+    <pre><code>python -m taskman db seed</code></pre>
+
+    <h2>使用例</h2>
+
+    <div class="example">
+        <h3>例1: 目標とタスクの設定</h3>
+        <ol>
+            <li>目標を作成する：
+                <pre><code>python -m taskman objective create --title "第4四半期の売上目標" --metric "売上高" --target 10000000 --current 0</code></pre>
+            </li>
+            <li>目標に関連するタスクを作成する：
+                <pre><code>python -m taskman task create --name "新規顧客開拓" --description "10社の新規顧客獲得" --priority 高 --objective 1</code></pre>
+            </li>
+            <li>タスクにステップを追加する：
+                <pre><code>python -m taskman step create --task 1 --description "見込み客リストの作成" --sequence 1
+python -m taskman step create --task 1 --description "初回コンタクト" --sequence 2
+python -m taskman step create --task 1 --description "提案資料作成" --sequence 3</code></pre>
+            </li>
+        </ol>
+    </div>
+
+    <div class="example">
+        <h3>例2: プロセスとワークフローの定義</h3>
+        <ol>
+            <li>複数のプロセスを作成する：
+                <pre><code>python -m taskman process create --name "顧客調査" --description "顧客ニーズの調査"
+python -m taskman process create --name "提案作成" --description "顧客向け提案書の作成"
+python -m taskman process create --name "提案プレゼン" --description "顧客への提案プレゼンテーション"</code></pre>
+            </li>
+            <li>プロセス間のワークフローを定義する：
+                <pre><code>python -m taskman workflow create --process 1 --from 1 --to 2 --condition-type 常時
+python -m taskman workflow create --process 1 --from 2 --to 3 --condition-type 条件付き --condition "提案書.status == '承認済み'"</code></pre>
+            </li>
+        </ol>
+    </div>
+
+    <div class="example">
+        <h3>例3: プロセスの実行</h3>
+        <ol>
+            <li>プロセスインスタンスを作成する：
+                <pre><code>python -m taskman instance create --process 1 --name "顧客A向けプロジェクト"</code></pre>
+            </li>
+            <li>タスクインスタンスを作成する：
+                <pre><code>python -m taskman task-instance create --task 1 --instance 1</code></pre>
+            </li>
+            <li>タスクインスタンスのステータスを更新する：
+                <pre><code>python -m taskman task-instance status 1 進行中</code></pre>
+            </li>
+            <li>プロセスインスタンスのステータスを更新する：
+                <pre><code>python -m taskman instance status 1 進行中</code></pre>
+            </li>
+        </ol>
+    </div>
+
+    <h2>ヒントとコツ</h2>
+
+    <div class="tip">
+        <ol>
+            <li><strong>目標の階層構造を活用する</strong>：大きな目標を設定し、それを小さなサブ目標に分割することで、達成可能な単位に分解できます。</li>
+            <li><strong>タスクにステップを詳細に定義する</strong>：タスクをステップに分解することで、進捗管理や作業委任が容易になります。</li>
+            <li><strong>プロセスを再利用する</strong>：繰り返し行う作業はプロセスとして定義しておくことで、効率的に作業を進められます。</li>
+            <li><strong>定期的にステータスを更新する</strong>：目標、タスク、プロセスのステータスを定期的に更新することで、現在の進捗状況を正確に把握できます。</li>
+            <li><strong>ワークフローの条件を活用する</strong>：条件付きワークフローを使用することで、特定の条件が満たされた場合にのみ次のプロセスに進むようなフローを設計できます。</li>
+        </ol>
+    </div>
+
+    <h2>トラブルシューティング</h2>
+
+    <div class="warning">
+        <h3>データベースエラーが発生する場合</h3>
+        <pre><code>python -m taskman db reset</code></pre>
+        <p>を実行して、データベースをリセットしてください。</p>
+    </div>
+
+    <div class="warning">
+        <h3>コマンドが見つからない場合</h3>
+        <p>Pythonのパスが正しく設定されているか確認してください。また、モジュールが正しくインストールされているか確認してください。</p>
+    </div>
+
+    <div class="warning">
+        <h3>IDが見つからないエラー</h3>
+        <p>操作しようとしているオブジェクト（目標、タスクなど）が存在するか確認してください。</p>
+        <pre><code>python -m taskman [オブジェクト] list</code></pre>
+        <p>で一覧を表示できます。</p>
+    </div>
+
+    <h2>システム情報</h2>
+    <p>バージョン情報を表示するには：</p>
+    <pre><code>python -m taskman version</code></pre>
+
+    <h2>まとめ</h2>
+    <p>タスク管理システムは、目標設定からタスク管理、プロセス実行までを一元管理するための強力なツールです。コマンドラインインターフェースを通じて、様々な操作を効率的に行うことができます。</p>
+    <p>このマニュアルでは基本的な使い方を説明しましたが、各コマンドの詳細なオプションについては、ヘルプコマンド（<code>--help</code>）を使用して確認してください。</p>
+</body>
+</html> 

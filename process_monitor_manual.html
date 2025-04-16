@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プロセスモニターGUI操作マニュアル</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #2196F3;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.2em;
+        }
+        h2 {
+            color: #2196F3;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 5px;
+            margin-top: 40px;
+        }
+        h3 {
+            color: #0D47A1;
+            margin-top: 25px;
+        }
+        .section {
+            margin-bottom: 30px;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .feature-box {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+        .feature-icon {
+            flex: 0 0 80px;
+            height: 80px;
+            background-color: #BBDEFB;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            font-size: 30px;
+            color: #0D47A1;
+        }
+        .feature-content {
+            flex: 1;
+        }
+        .tab-container {
+            display: flex;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .tab-navigation {
+            flex: 0 0 200px;
+            background-color: #f1f1f1;
+        }
+        .tab-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button.active {
+            background-color: #2196F3;
+            color: white;
+        }
+        .tab-content {
+            flex: 1;
+            padding: 20px;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        .mockup {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .mockup-title {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+        }
+        .mockup-content {
+            padding: 10px;
+        }
+        .process-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .process-table th, .process-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .process-table th {
+            background-color: #f1f1f1;
+        }
+        .progress-bar {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            width: 100%;
+            position: relative;
+        }
+        .progress-fill {
+            background-color: #2196F3;
+            height: 100%;
+            border-radius: 10px;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+        }
+        .status-in-progress {
+            background-color: #BBDEFB;
+            color: #0D47A1;
+        }
+        .status-not-started {
+            background-color: #E0E0E0;
+            color: #616161;
+        }
+        .status-completed {
+            background-color: #C8E6C9;
+            color: #2E7D32;
+        }
+        .workflow-steps {
+            display: flex;
+            margin: 20px 0;
+        }
+        .workflow-step {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            margin: 0 5px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .workflow-step::after {
+            content: "→";
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .workflow-step:last-child::after {
+            content: "";
+        }
+        .step-completed {
+            background-color: #C8E6C9;
+            border: 1px solid #4CAF50;
+        }
+        .step-in-progress {
+            background-color: #BBDEFB;
+            border: 1px solid #2196F3;
+        }
+        .step-not-started {
+            background-color: #F5F5F5;
+            border: 1px solid #9E9E9E;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .button-disabled {
+            background-color: #e0e0e0;
+            color: #9e9e9e;
+            cursor: not-allowed;
+        }
+        .shortcut {
+            display: inline-block;
+            background-color: #f1f1f1;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 0 5px;
+        }
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #757575;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>プロセスモニターGUI操作マニュアル</h1>
+        <p>業務プロセスとタスクの進捗状況を視覚的に管理するためのツール</p>
+    </header>
+
+    <div class="section">
+        <h2>1. はじめに</h2>
+        <div class="feature-box">
+            <div class="feature-icon">📊</div>
+            <div class="feature-content">
+                <p>プロセスモニターGUIは、業務プロセスとタスクの進捗状況を視覚的に管理するためのアプリケーションです。このマニュアルでは、各機能の使い方を説明します。</p>
+                <p>起動するには、以下のコマンドを実行します：</p>
+                <div style="background-color: #2b2b2b; color: #fff; padding: 10px; border-radius: 5px; font-family: monospace;">
+                    $ python process_monitor_prototype.py
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. メイン画面の構成</h2>
+        <p>アプリケーションは以下の4つのタブで構成されています：</p>
+        
+        <div class="tab-container">
+            <div class="tab-navigation">
+                <button class="tab-button active" onclick="showTab('tab1')">ダッシュボード</button>
+                <button class="tab-button" onclick="showTab('tab2')">プロセス詳細</button>
+                <button class="tab-button" onclick="showTab('tab3')">レポート</button>
+                <button class="tab-button" onclick="showTab('tab4')">設定</button>
+            </div>
+            <div class="tab-content">
+                <div id="tab1" class="tab-panel active">
+                    <h3>ダッシュボード</h3>
+                    <p>進行中のプロセス一覧とアクティビティの概要を表示します。</p>
+                    <ul>
+                        <li>プロセス一覧テーブル</li>
+                        <li>最近のアクティビティ履歴</li>
+                        <li>ワークフロー視覚化</li>
+                    </ul>
+                </div>
+                <div id="tab2" class="tab-panel">
+                    <h3>プロセス詳細</h3>
+                    <p>選択したプロセスの詳細情報とタスク一覧を表示します。</p>
+                    <ul>
+                        <li>プロセス基本情報</li>
+                        <li>進捗状況</li>
+                        <li>関連タスク一覧</li>
+                        <li>アクションボタン</li>
+                    </ul>
+                </div>
+                <div id="tab3" class="tab-panel">
+                    <h3>レポート</h3>
+                    <p>各種レポートの生成と表示を行います。</p>
+                    <ul>
+                        <li>レポートタイプ選択</li>
+                        <li>期間設定</li>
+                        <li>レポートプレビュー</li>
+                    </ul>
+                </div>
+                <div id="tab4" class="tab-panel">
+                    <h3>設定</h3>
+                    <p>アプリケーションの設定を変更します。</p>
+                    <ul>
+                        <li>更新間隔設定</li>
+                        <li>通知設定</li>
+                        <li>テーマ設定</li>
+                        <li>言語設定</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. ダッシュボードの使い方</h2>
+        
+        <h3>3.1 プロセス一覧</h3>
+        <div class="mockup">
+            <div class="mockup-title">プロセス一覧</div>
+            <div class="mockup-content">
+                <table class="process-table">
+                    <thead>
+                        <tr>
+                            <th>プロセス名</th>
+                            <th>ステータス</th>
+                            <th>進捗</th>
+                            <th>担当者</th>
+                            <th>期限</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>月次報告書作成</td>
+                            <td><span class="status status-in-progress">進行中</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 75%;"></div>
+                                </div>
+                                75%
+                            </td>
+                            <td>田中太郎</td>
+                            <td>2023-05-15</td>
+                        </tr>
+                        <tr>
+                            <td>プロジェクト計画策定</td>
+                            <td><span class="status status-in-progress">進行中</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 30%;"></div>
+                                </div>
+                                30%
+                            </td>
+                            <td>佐藤花子</td>
+                            <td>2023-05-20</td>
+                        </tr>
+                        <tr>
+                            <td>顧客対応フロー改善</td>
+                            <td><span class="status status-not-started">未開始</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                                0%
+                            </td>
+                            <td>鈴木一郎</td>
+                            <td>2023-05-25</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p><small>※ プロセス名をクリックすると詳細画面が表示されます</small></p>
+            </div>
+        </div>
+
+        <h3>3.2 最近のアクティビティ</h3>
+        <div class="mockup">
+            <div class="mockup-title">最近のアクティビティ</div>
+            <div class="mockup-content">
+                <table class="process-table">
+                    <thead>
+                        <tr>
+                            <th>プロセス</th>
+                            <th>アクション</th>
+                            <th>時間</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>月次報告書作成</td>
+                            <td>データ収集が完了しました</td>
+                            <td>14:30</td>
+                        </tr>
+                        <tr>
+                            <td>月次報告書作成</td>
+                            <td>データ分析を開始しました</td>
+                            <td>15:45</td>
+                        </tr>
+                        <tr>
+                            <td>プロジェクト計画策定</td>
+                            <td>要件定義が完了しました</td>
+                            <td>12:15</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h3>3.3 ワークフロー表示</h3>
+        <div class="mockup">
+            <div class="mockup-title">ワークフロー: 月次報告プロセス</div>
+            <div class="mockup-content">
+                <div class="workflow-steps">
+                    <div class="workflow-step step-completed">データ収集</div>
+                    <div class="workflow-step step-in-progress">データ分析</div>
+                    <div class="workflow-step step-not-started">レポート作成</div>
+                    <div class="workflow-step step-not-started">レビュー</div>
+                    <div class="workflow-step step-not-started">提出</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>4. プロセス詳細画面の使い方</h2>
+        
+        <h3>4.1 プロセス情報の表示</h3>
+        <div class="mockup">
+            <div class="mockup-title">プロセス詳細: 月次報告書作成</div>
+            <div class="mockup-content">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 150px; font-weight: bold;">プロセス名:</td>
+                        <td>月次報告書作成</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">ステータス:</td>
+                        <td><span class="status status-in-progress">進行中</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">開始日:</td>
+                        <td>2023-05-10</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">期限:</td>
+                        <td>2023-05-15</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">担当者:</td>
+                        <td>田中太郎</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">進捗:</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 75%;"></div>
+                            </div>
+                            75%
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <h3>4.2 関連タスクの表示</h3>
+        <div class="mockup">
+            <div class="mockup-title">関連タスク</div>
+            <div class="mockup-content">
+                <table class="process-table">
+                    <thead>
+                        <tr>
+                            <th>タスク名</th>
+                            <th>ステータス</th>
+                            <th>優先度</th>
+                            <th>担当者</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>データ収集</td>
+                            <td><span class="status status-completed">完了</span></td>
+                            <td>中</td>
+                            <td>田中太郎</td>
+                        </tr>
+                        <tr>
+                            <td>データ分析</td>
+                            <td><span class="status status-in-progress">進行中</span></td>
+                            <td>高</td>
+                            <td>田中太郎</td>
+                        </tr>
+                        <tr>
+                            <td>レポート作成</td>
+                            <td><span class="status status-not-started">未着手</span></td>
+                            <td>中</td>
+                            <td>田中太郎</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h3>4.3 アクションボタン</h3>
+        <div class="mockup">
+            <div class="mockup-content">
+                <a href="#" class="button button-disabled">開始</a>
+                <a href="#" class="button">完了</a>
+                <a href="#" class="button">キャンセル</a>
+            </div>
+        </div>
+        <p>ボタンの有効/無効状態はプロセスのステータスによって変わります：</p>
+        <ul>
+            <li><strong>開始ボタン</strong>：ステータスが「未開始」のプロセスでのみ有効</li>
+            <li><strong>完了ボタン</strong>：ステータスが「進行中」のプロセスでのみ有効</li>
+            <li><strong>キャンセルボタン</strong>：ステータスが「完了」以外のプロセスで有効</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>5. レポート画面の使い方</h2>
+        
+        <div class="mockup">
+            <div class="mockup-title">レポート生成</div>
+            <div class="mockup-content">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: inline-block; width: 120px;">レポートタイプ:</label>
+                    <select style="padding: 5px; width: 200px;">
+                        <option>プロセス概要</option>
+                        <option>タスク状況</option>
+                        <option>遅延分析</option>
+                        <option>担当者別作業量</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: inline-block; width: 120px;">期間:</label>
+                    <select style="padding: 5px; width: 200px;">
+                        <option>今日</option>
+                        <option>今週</option>
+                        <option>今月</option>
+                        <option>今四半期</option>
+                        <option>カスタム期間</option>
+                    </select>
+                </div>
+                <div>
+                    <a href="#" class="button">レポート生成</a>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h4>プレビュー</h4>
+                    <div style="background-color: #fff; border: 1px solid #ddd; padding: 10px; height: 200px; overflow: auto;">
+                        レポートタイプと期間を選択して、「レポート生成」ボタンをクリックしてください。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>6. 設定画面の使い方</h2>
+        
+        <div class="mockup">
+            <div class="mockup-title">設定</div>
+            <div class="mockup-content">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: inline-block; width: 150px;">更新間隔 (秒):</label>
+                    <input type="text" value="5" style="padding: 5px; width: 50px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: inline-block; width: 150px;">通知設定:</label>
+                    <select style="padding: 5px; width: 200px;">
+                        <option>すべて</option>
+                        <option>重要のみ</option>
+                        <option>なし</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: inline-block; width: 150px;">テーマ:</label>
+                    <select style="padding: 5px; width: 200px;">
+                        <option>ライト</option>
+                        <option>ダーク</option>
+                        <option>システム設定に従う</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: inline-block; width: 150px;">言語:</label>
+                    <select style="padding: 5px; width: 200px;">
+                        <option>日本語</option>
+                        <option>English</option>
+                    </select>
+                </div>
+                <div style="margin-top: 20px;">
+                    <a href="#" class="button">設定を保存</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>7. キーボードショートカット</h2>
+        
+        <table class="process-table">
+            <thead>
+                <tr>
+                    <th>ショートカット</th>
+                    <th>動作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="shortcut">Ctrl</span> + <span class="shortcut">Tab</span></td>
+                    <td>次のタブに移動</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">Ctrl</span> + <span class="shortcut">Shift</span> + <span class="shortcut">Tab</span></td>
+                    <td>前のタブに移動</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">F5</span></td>
+                    <td>データを手動で更新</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">Esc</span></td>
+                    <td>ダイアログを閉じる</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>8. トラブルシューティング</h2>
+        
+        <h3>8.1 データが更新されない場合</h3>
+        <ul>
+            <li>ステータスバーで最終更新時刻を確認してください</li>
+            <li>「設定」タブで更新間隔が適切に設定されているか確認してください</li>
+            <li>アプリケーションを再起動してみてください</li>
+        </ul>
+
+        <h3>8.2 エラーダイアログが表示された場合</h3>
+        <div class="mockup">
+            <div class="mockup-title">エラー</div>
+            <div class="mockup-content" style="text-align: center;">
+                <p style="color: #f44336;"><strong>コマンドの実行中にエラーが発生しました。</strong></p>
+                <p>終了コード: 1</p>
+                <p>エラー: 指定されたプロセスIDが見つかりません。</p>
+                <div style="margin-top: 20px;">
+                    <a href="#" class="button">OK</a>
+                </div>
+            </div>
+        </div>
+        <ul>
+            <li>エラーメッセージを確認し、指示に従ってください</li>
+            <li>入力データが正しいことを確認してください</li>
+            <li>問題が解決しない場合は、ログファイルを確認してください</li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p>© 2023 プロセスモニターGUIシステム</p>
+        <p>本マニュアルは基本的な操作方法を説明しています。詳細な機能や最新情報については、開発チームにお問い合わせください。</p>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tabs
+            var tabPanels = document.getElementsByClassName('tab-panel');
+            for (var i = 0; i < tabPanels.length; i++) {
+                tabPanels[i].classList.remove('active');
+            }
+            
+            // Deactivate all tab buttons
+            var tabButtons = document.getElementsByClassName('tab-button');
+            for (var i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].classList.remove('active');
+            }
+            
+            // Show the selected tab
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate the clicked button
+            event.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+</html> 
