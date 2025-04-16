@@ -8,7 +8,11 @@ from sqlalchemy.ext.declarative import declarative_base
 from taskman.config.database import db_settings
 
 # Create database URL
+# MySQL接続設定
 DATABASE_URL = f"mysql://{db_settings.user}:{db_settings.password}@{db_settings.host}:{db_settings.port}/{db_settings.database}"
+
+# SQLite接続設定（開発環境用）
+# DATABASE_URL = f"sqlite:///taskman.db"
 
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL)
