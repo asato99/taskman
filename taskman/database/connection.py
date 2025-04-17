@@ -1,26 +1,26 @@
 """
-Database connection utilities
+Database connection setup
 """
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.declarative import declared_attr
 
 from taskman.config.database import db_settings
 
-# Create database URL
-# MySQL接続設定
-DATABASE_URL = f"mysql://{db_settings.user}:{db_settings.password}@{db_settings.host}:{db_settings.port}/{db_settings.database}"
+# DBへの接続設定
+DATABASE_URL = os.environ.get("DATABASE_URL") or f"mysql://{db_settings.user}:{db_settings.password}@{db_settings.host}:{db_settings.port}/{db_settings.database}"
 
-# SQLite接続設定（開発環境用）
-# DATABASE_URL = f"sqlite:///taskman.db"
+# エンジン作成
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+)
 
-# Create SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
-
-# Create session factory
+# セッションファクトリを作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create base class for models
+# Baseクラスを作成 - これを継承して各モデルを定義する
 Base = declarative_base()
 
 def get_db():
