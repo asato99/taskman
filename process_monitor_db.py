@@ -11,9 +11,12 @@
 import os
 import sys
 import json
-import sqlite3
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+
+# SQLAlchemyをインポート
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 # ロギング設定
 logging.basicConfig(
@@ -23,341 +26,70 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# タスク管理システムの設定をインポート
+try:
+    # タスク管理システムのパスを追加
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from taskman.config.database import db_settings
+    from taskman.database.connection import engine, SessionLocal
+    logger.info("タスク管理システムの設定とデータベース接続をインポートしました")
+    # タスク管理システムの既存のエンジンとセッションを使用
+    use_existing_connection = True
+except ImportError as e:
+    logger.warning(f"タスク管理システムの設定をインポートできませんでした: {e}")
+    # デフォルトの設定
+    from collections import namedtuple
+    DatabaseSettings = namedtuple('DatabaseSettings', ['host', 'port', 'user', 'password', 'database'])
+    db_settings = DatabaseSettings(
+        host="localhost",
+        port=3306,
+        user="kazuasato",
+        password="password",
+        database="taskman_db"
+    )
+    # 独自のエンジンとセッションを作成
+    DATABASE_URL = f"mysql+pymysql://{db_settings.user}:{db_settings.password}@{db_settings.host}:{db_settings.port}/{db_settings.database}"
+    engine = create_engine(DATABASE_URL)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    use_existing_connection = False
+
 # シングルトン用のインスタンス
 _db_instance = None
 
-class DatabaseConnection:
-    """データベース接続を管理するクラス"""
+class ProcessMonitorDB:
+    """プロセスモニターのデータベースアクセスクラス"""
     
-    def __init__(self, db_path):
+    def __init__(self, db_config=None):
         """
         初期化
         
         Args:
-            db_path: SQLiteデータベースファイルのパス
+            db_config: データベース設定（host, port, user, password, database）
         """
-        self.db_path = db_path
-        self.connection = None
-        self.cursor = None
+        self.db_config = db_config
+        self.session = None
+        self.connected = False
     
     def connect(self):
         """データベースに接続"""
         try:
-            self.connection = sqlite3.connect(self.db_path)
-            # 日付型とdatetimeの変換を有効化
-            self.connection.execute("PRAGMA foreign_keys = ON")
-            self.cursor = self.connection.cursor()
-            logger.info(f"データベース {self.db_path} に接続しました")
+            self.session = SessionLocal()
+            self.connected = True
+            logger.info(f"データベース {db_settings.database} に接続しました (ホスト: {db_settings.host})")
             return True
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"データベース接続エラー: {e}")
             return False
     
     def disconnect(self):
         """データベースから切断"""
-        if self.connection:
-            self.connection.close()
-            self.connection = None
-            self.cursor = None
+        if self.session:
+            self.session.close()
+            self.session = None
+            self.connected = False
             logger.info("データベースから切断しました")
             return True
         return False
-    
-    def execute_query(self, query, params=None):
-        """
-        SQLクエリを実行
-        
-        Args:
-            query: 実行するSQLクエリ
-            params: クエリパラメータ (オプション)
-            
-        Returns:
-            クエリ結果
-        """
-        if not self.connection:
-            raise Exception("データベースに接続されていません")
-        
-        try:
-            if params:
-                self.cursor.execute(query, params)
-            else:
-                self.cursor.execute(query)
-            
-            return self.cursor.fetchall()
-        except sqlite3.Error as e:
-            logger.error(f"クエリ実行エラー: {e}")
-            logger.error(f"実行クエリ: {query}")
-            logger.error(f"パラメータ: {params}")
-            raise
-    
-    def execute_insert(self, query, params=None):
-        """
-        INSERT文を実行
-        
-        Args:
-            query: 実行するSQLクエリ
-            params: クエリパラメータ (オプション)
-            
-        Returns:
-            新しく挿入された行のID
-        """
-        if not self.connection:
-            raise Exception("データベースに接続されていません")
-        
-        try:
-            if params:
-                self.cursor.execute(query, params)
-            else:
-                self.cursor.execute(query)
-            
-            self.connection.commit()
-            return self.cursor.lastrowid
-        except sqlite3.Error as e:
-            self.connection.rollback()
-            logger.error(f"INSERT実行エラー: {e}")
-            logger.error(f"実行クエリ: {query}")
-            logger.error(f"パラメータ: {params}")
-            raise
-    
-    def execute_update(self, query, params=None):
-        """
-        UPDATE文を実行
-        
-        Args:
-            query: 実行するSQLクエリ
-            params: クエリパラメータ (オプション)
-            
-        Returns:
-            影響を受けた行数
-        """
-        if not self.connection:
-            raise Exception("データベースに接続されていません")
-        
-        try:
-            if params:
-                self.cursor.execute(query, params)
-            else:
-                self.cursor.execute(query)
-            
-            self.connection.commit()
-            return self.cursor.rowcount
-        except sqlite3.Error as e:
-            self.connection.rollback()
-            logger.error(f"UPDATE実行エラー: {e}")
-            logger.error(f"実行クエリ: {query}")
-            logger.error(f"パラメータ: {params}")
-            raise
-
-
-class ProcessMonitorDB:
-    """プロセスモニターのデータベースアクセスクラス"""
-    
-    def __init__(self, db_path="./taskman.db"):
-        """
-        初期化
-        
-        Args:
-            db_path: SQLiteデータベースファイルのパス
-        """
-        self.db = DatabaseConnection(db_path)
-    
-    def connect(self):
-        """データベースに接続"""
-        return self.db.connect()
-    
-    def disconnect(self):
-        """データベースから切断"""
-        return self.db.disconnect()
-    
-    def initialize_database(self):
-        """
-        データベースを初期化し、必要なテーブルを作成します
-        
-        Returns:
-            bool: 初期化が成功したかどうか
-        """
-        try:
-            # プロセステーブルの作成
-            self.db.execute_update("""
-            CREATE TABLE IF NOT EXISTS processes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                status TEXT DEFAULT '未開始',
-                start_date TEXT,
-                end_date TEXT,
-                owner TEXT,
-                description TEXT
-            )
-            """)
-            
-            # タスクテーブルの作成
-            self.db.execute_update("""
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                process_id INTEGER,
-                name TEXT NOT NULL,
-                status TEXT DEFAULT '未着手',
-                priority TEXT DEFAULT '中',
-                owner TEXT,
-                description TEXT,
-                FOREIGN KEY (process_id) REFERENCES processes(id) ON DELETE CASCADE
-            )
-            """)
-            
-            # アクティビティテーブルの作成
-            self.db.execute_update("""
-            CREATE TABLE IF NOT EXISTS activities (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                process_id INTEGER,
-                description TEXT NOT NULL,
-                timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-                user TEXT,
-                FOREIGN KEY (process_id) REFERENCES processes(id) ON DELETE CASCADE
-            )
-            """)
-            
-            # ワークフローテーブルの作成
-            self.db.execute_update("""
-            CREATE TABLE IF NOT EXISTS workflows (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT
-            )
-            """)
-            
-            # ワークフローステップテーブルの作成
-            self.db.execute_update("""
-            CREATE TABLE IF NOT EXISTS workflow_steps (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                workflow_id INTEGER,
-                name TEXT NOT NULL,
-                sequence INTEGER,
-                FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-            )
-            """)
-            
-            # プロセスワークフロー関連付けテーブル
-            self.db.execute_update("""
-            CREATE TABLE IF NOT EXISTS process_workflows (
-                process_id INTEGER,
-                workflow_id INTEGER,
-                PRIMARY KEY (process_id, workflow_id),
-                FOREIGN KEY (process_id) REFERENCES processes(id) ON DELETE CASCADE,
-                FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-            )
-            """)
-            
-            logger.info("データベーステーブルが作成されました")
-            
-            # サンプルデータの追加
-            self._add_sample_data()
-            
-            return True
-        except Exception as e:
-            logger.error(f"データベース初期化エラー: {e}")
-            return False
-    
-    def _add_sample_data(self):
-        """サンプルデータを追加"""
-        # サンプルプロセスの追加
-        process_ids = []
-        sample_processes = [
-            ("月次報告書作成", "進行中", datetime.now() - timedelta(days=2), datetime.now() + timedelta(days=1), "田中太郎"),
-            ("プロジェクト計画策定", "進行中", datetime.now() - timedelta(days=1), datetime.now() + timedelta(days=5), "佐藤花子"),
-            ("顧客対応フロー改善", "未開始", datetime.now() + timedelta(days=1), datetime.now() + timedelta(days=7), "鈴木一郎"),
-            ("経費精算", "完了", datetime.now() - timedelta(days=5), datetime.now() - timedelta(days=1), "高橋雅子")
-        ]
-        
-        for process in sample_processes:
-            query = """
-            INSERT INTO processes (name, status, start_date, end_date, owner)
-            VALUES (?, ?, ?, ?, ?)
-            """
-            process_id = self.db.execute_insert(query, process)
-            process_ids.append(process_id)
-        
-        # サンプルタスクの追加
-        sample_tasks = [
-            (process_ids[0], "データ収集", "完了", "中", "田中太郎"),
-            (process_ids[0], "データ分析", "進行中", "高", "田中太郎"),
-            (process_ids[0], "レポート作成", "未着手", "中", "田中太郎"),
-            (process_ids[1], "要件定義", "完了", "高", "佐藤花子"),
-            (process_ids[1], "スケジュール作成", "進行中", "中", "佐藤花子"),
-            (process_ids[1], "リソース割り当て", "未着手", "低", "佐藤花子")
-        ]
-        
-        for task in sample_tasks:
-            query = """
-            INSERT INTO tasks (process_id, name, status, priority, owner)
-            VALUES (?, ?, ?, ?, ?)
-            """
-            self.db.execute_insert(query, task)
-        
-        # サンプルワークフローの追加
-        workflow_ids = []
-        sample_workflows = [
-            "月次報告プロセス",
-            "プロジェクト計画プロセス"
-        ]
-        
-        for workflow in sample_workflows:
-            query = """
-            INSERT INTO workflows (name)
-            VALUES (?)
-            """
-            workflow_id = self.db.execute_insert(query, (workflow,))
-            workflow_ids.append(workflow_id)
-        
-        # サンプルワークフローステップの追加
-        workflow_steps = [
-            (workflow_ids[0], "データ収集", 1),
-            (workflow_ids[0], "データ分析", 2),
-            (workflow_ids[0], "レポート作成", 3),
-            (workflow_ids[0], "レビュー", 4),
-            (workflow_ids[0], "提出", 5),
-            (workflow_ids[1], "要件定義", 1),
-            (workflow_ids[1], "スケジュール作成", 2),
-            (workflow_ids[1], "リソース割り当て", 3),
-            (workflow_ids[1], "レビュー", 4),
-            (workflow_ids[1], "承認", 5)
-        ]
-        
-        for step in workflow_steps:
-            query = """
-            INSERT INTO workflow_steps (workflow_id, name, sequence)
-            VALUES (?, ?, ?)
-            """
-            self.db.execute_insert(query, step)
-        
-        # ワークフローとプロセスの関連付け
-        process_workflows = [
-            (process_ids[0], workflow_ids[0]),  # 月次報告書作成 → 月次報告プロセス
-            (process_ids[1], workflow_ids[1])   # プロジェクト計画策定 → プロジェクト計画プロセス
-        ]
-        
-        for pw in process_workflows:
-            query = """
-            INSERT INTO process_workflows (process_id, workflow_id)
-            VALUES (?, ?)
-            """
-            self.db.execute_insert(query, pw)
-        
-        # サンプルアクティビティの追加
-        sample_activities = [
-            (process_ids[0], "データ収集が完了しました", datetime.now() - timedelta(hours=5), "システム"),
-            (process_ids[0], "データ分析を開始しました", datetime.now() - timedelta(hours=4), "田中太郎"),
-            (process_ids[1], "要件定義が完了しました", datetime.now() - timedelta(hours=7), "システム"),
-            (process_ids[1], "スケジュール作成を開始しました", datetime.now() - timedelta(hours=3), "佐藤花子")
-        ]
-        
-        for activity in sample_activities:
-            query = """
-            INSERT INTO activities (process_id, description, timestamp, user)
-            VALUES (?, ?, ?, ?)
-            """
-            self.db.execute_insert(query, activity)
-        
-        logger.info("サンプルデータが追加されました")
     
     def get_processes(self):
         """
@@ -366,36 +98,35 @@ class ProcessMonitorDB:
         Returns:
             プロセスのリスト（辞書形式）
         """
-        query = """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
+            
+        query = text("""
         SELECT 
-            p.id, 
-            p.name, 
+            p.id as id, 
+            p.name as name, 
             p.status, 
             IFNULL(
-                (SELECT COUNT(*) FROM tasks t WHERE t.process_id = p.id AND t.status = '完了') * 100.0 / 
-                NULLIF((SELECT COUNT(*) FROM tasks t WHERE t.process_id = p.id), 0),
+                (SELECT COUNT(*) FROM task t WHERE t.process_id = p.id AND t.status = '完了') * 100.0 / 
+                NULLIF((SELECT COUNT(*) FROM task t WHERE t.process_id = p.id), 0),
                 0
             ) as progress,
-            p.start_date, 
-            p.end_date, 
-            p.owner
-        FROM processes p
-        ORDER BY p.status != '完了', p.end_date
-        """
+            p.created_at as start_date, 
+            p.updated_at as end_date, 
+            NULL as owner
+        FROM process p
+        ORDER BY p.status != 'アクティブ', p.created_at DESC
+        """)
         
-        rows = self.db.execute_query(query)
+        result = self.session.execute(query)
         processes = []
         
-        for row in rows:
-            process = {
-                "id": row[0],
-                "name": row[1],
-                "status": row[2],
-                "progress": round(row[3]),  # 進捗率は四捨五入して整数に
-                "start_date": self._parse_date(row[4]),
-                "end_date": self._parse_date(row[5]),
-                "owner": row[6]
-            }
+        for row in result:
+            # SQLAlchemyの行をディクショナリに変換
+            process = dict(row._mapping)
+            # 進捗率を整数に
+            if 'progress' in process:
+                process['progress'] = round(float(process['progress']))
             processes.append(process)
         
         return processes
@@ -410,38 +141,37 @@ class ProcessMonitorDB:
         Returns:
             プロセス情報（辞書形式）
         """
-        query = """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
+            
+        query = text("""
         SELECT 
-            p.id, 
-            p.name, 
+            p.id as id, 
+            p.name as name, 
             p.status, 
             IFNULL(
-                (SELECT COUNT(*) FROM tasks t WHERE t.process_id = p.id AND t.status = '完了') * 100.0 / 
-                NULLIF((SELECT COUNT(*) FROM tasks t WHERE t.process_id = p.id), 0),
+                (SELECT COUNT(*) FROM task t WHERE t.process_id = p.id AND t.status = '完了') * 100.0 / 
+                NULLIF((SELECT COUNT(*) FROM task t WHERE t.process_id = p.id), 0),
                 0
             ) as progress,
-            p.start_date, 
-            p.end_date, 
-            p.owner
-        FROM processes p
-        WHERE p.id = ?
-        """
+            p.created_at as start_date, 
+            p.updated_at as end_date, 
+            NULL as owner
+        FROM process p
+        WHERE p.id = :process_id
+        """)
         
-        rows = self.db.execute_query(query, (process_id,))
+        result = self.session.execute(query, {"process_id": process_id})
+        row = result.fetchone()
         
-        if not rows:
+        if not row:
             return None
         
-        row = rows[0]
-        process = {
-            "id": row[0],
-            "name": row[1],
-            "status": row[2],
-            "progress": round(row[3]),  # 進捗率は四捨五入して整数に
-            "start_date": self._parse_date(row[4]),
-            "end_date": self._parse_date(row[5]),
-            "owner": row[6]
-        }
+        # SQLAlchemyの行をディクショナリに変換
+        process = dict(row._mapping)
+        # 進捗率を整数に
+        if 'progress' in process:
+            process['progress'] = round(float(process['progress']))
         
         return process
     
@@ -455,33 +185,28 @@ class ProcessMonitorDB:
         Returns:
             タスクのリスト（辞書形式）
         """
-        query = """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
+            
+        query = text("""
         SELECT 
-            id, 
-            process_id, 
-            name, 
-            status, 
-            priority,
-            owner,
-            description
-        FROM tasks
-        WHERE process_id = ?
-        ORDER BY id
-        """
+            t.id as id, 
+            t.process_id, 
+            t.name as name, 
+            t.status, 
+            t.priority,
+            t.assigned_to as owner,
+            t.description
+        FROM task t
+        WHERE t.process_id = :process_id
+        ORDER BY t.id
+        """)
         
-        rows = self.db.execute_query(query, (process_id,))
+        result = self.session.execute(query, {"process_id": process_id})
         tasks = []
         
-        for row in rows:
-            task = {
-                "id": row[0],
-                "process_id": row[1],
-                "name": row[2],
-                "status": row[3],
-                "priority": row[4],
-                "owner": row[5],
-                "description": row[6]
-            }
+        for row in result:
+            task = dict(row._mapping)
             tasks.append(task)
         
         return tasks
@@ -496,33 +221,51 @@ class ProcessMonitorDB:
         Returns:
             ワークフローステップのリスト（辞書形式）
         """
-        query = """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
+            
+        # ワークフロー情報の取得
+        query = text("""
         SELECT 
-            ws.id,
-            ws.workflow_id,
-            ws.name,
-            ws.sequence,
-            (SELECT status FROM tasks t WHERE t.process_id = ? AND t.name = ws.name LIMIT 1) as status
-        FROM workflow_steps ws
-        JOIN process_workflows pw ON ws.workflow_id = pw.workflow_id
-        WHERE pw.process_id = ?
-        ORDER BY ws.sequence
-        """
+            w.id,
+            w.from_task_id,
+            w.to_task_id,
+            w.condition_type,
+            w.sequence_number
+        FROM workflow w
+        WHERE w.process_id = :process_id
+        ORDER BY w.sequence_number
+        """)
         
-        rows = self.db.execute_query(query, (process_id, process_id))
-        steps = []
+        result = self.session.execute(query, {"process_id": process_id})
+        workflows = []
         
-        for row in rows:
+        for row in result:
+            workflow = dict(row._mapping)
+            # タスク情報の取得
+            start_task_query = text("""
+            SELECT name FROM task WHERE id = :task_id
+            """)
+            start_task_result = self.session.execute(start_task_query, {"task_id": workflow['from_task_id']})
+            start_task_row = start_task_result.fetchone()
+            
+            end_task_query = text("""
+            SELECT name FROM task WHERE id = :task_id
+            """)
+            end_task_result = self.session.execute(end_task_query, {"task_id": workflow['to_task_id']})
+            end_task_row = end_task_result.fetchone()
+            
+            # ワークフロー情報の構築
             step = {
-                "id": row[0],
-                "workflow_id": row[1],
-                "name": row[2],
-                "sequence": row[3],
-                "status": row[4] if row[4] else "未着手"
+                "id": workflow['id'],
+                "workflow_id": workflow['id'],
+                "name": f"{start_task_row[0] if start_task_row else 'スタート'} → {end_task_row[0] if end_task_row else 'エンド'}",
+                "sequence": workflow['sequence_number'],
+                "status": "未着手"  # ステータスはタスクの状態から計算する必要がある
             }
-            steps.append(step)
+            workflows.append(step)
         
-        return steps
+        return workflows
     
     def get_recent_activities(self, limit=10):
         """
@@ -534,64 +277,420 @@ class ProcessMonitorDB:
         Returns:
             アクティビティのリスト（辞書形式）
         """
-        query = """
-        SELECT 
-            a.id,
-            a.process_id,
-            p.name as process_name,
-            a.description,
-            a.timestamp,
-            a.user
-        FROM activities a
-        LEFT JOIN processes p ON a.process_id = p.id
-        ORDER BY a.timestamp DESC
-        LIMIT ?
-        """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
         
-        rows = self.db.execute_query(query, (limit,))
+        # アクティビティテーブルがない場合は、タスクの更新履歴などから構築
+        query = text("""
+        SELECT 
+            t.id as id,
+            t.process_id,
+            p.name as process_name,
+            CONCAT(t.name, 'が', t.status, 'になりました') as description,
+            t.updated_at as timestamp,
+            t.assigned_to as user
+        FROM task t
+        JOIN process p ON t.process_id = p.id
+        ORDER BY t.updated_at DESC
+        LIMIT :limit
+        """)
+        
+        result = self.session.execute(query, {"limit": limit})
         activities = []
         
-        for row in rows:
-            activity = {
-                "id": row[0],
-                "process_id": row[1],
-                "process_name": row[2],
-                "description": row[3],
-                "timestamp": self._parse_date(row[4]),
-                "user": row[5]
-            }
+        for row in result:
+            activity = dict(row._mapping)
             activities.append(activity)
         
         return activities
     
-    def _parse_date(self, date_str):
+    def get_process_instances(self, filters=None):
         """
-        日付文字列をdatetimeオブジェクトに変換
+        プロセスインスタンス一覧を取得
         
         Args:
-            date_str: 日付文字列
+            filters: フィルタリング条件（process_id, status, created_by）
             
         Returns:
-            datetimeオブジェクトまたはNone
+            プロセスインスタンスのリスト（辞書形式）
         """
-        if not date_str:
-            return None
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
             
+        query = text("""
+        SELECT 
+            pi.id, 
+            p.name as process_name,
+            p.id as process_id,
+            pi.status,
+            pi.started_at,
+            pi.completed_at,
+            pi.created_by,
+            (SELECT COUNT(*) FROM task_instance ti WHERE ti.process_instance_id = pi.id AND ti.status = '完了') * 100.0 / 
+            NULLIF((SELECT COUNT(*) FROM task_instance ti WHERE ti.process_instance_id = pi.id), 0) as progress
+        FROM process_instance pi
+        JOIN process p ON pi.process_id = p.id
+        WHERE 1=1
+        """)
+        
+        # フィルター条件の追加
+        params = {}
+        if filters:
+            if 'process_id' in filters and filters['process_id']:
+                query = text(str(query) + " AND pi.process_id = :process_id")
+                params['process_id'] = filters['process_id']
+            if 'status' in filters and filters['status']:
+                query = text(str(query) + " AND pi.status = :status")
+                params['status'] = filters['status']
+            if 'created_by' in filters and filters['created_by']:
+                query = text(str(query) + " AND pi.created_by = :created_by")
+                params['created_by'] = filters['created_by']
+        
+        query = text(str(query) + " ORDER BY pi.started_at DESC")
+        
+        result = self.session.execute(query, params)
+        instances = []
+        
+        for row in result:
+            instance = dict(row._mapping)
+            if 'progress' in instance and instance['progress'] is not None:
+                instance['progress'] = round(float(instance['progress']))
+            else:
+                instance['progress'] = 0
+            instances.append(instance)
+        
+        return instances
+    
+    def get_process_instance_by_id(self, instance_id):
+        """
+        指定したIDのプロセスインスタンスを取得
+        
+        Args:
+            instance_id: プロセスインスタンスID
+            
+        Returns:
+            プロセスインスタンス情報（辞書形式）
+        """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
+            
+        query = text("""
+        SELECT 
+            pi.id, 
+            p.name as process_name,
+            p.id as process_id,
+            pi.status,
+            pi.started_at,
+            pi.completed_at,
+            pi.created_by,
+            (SELECT COUNT(*) FROM task_instance ti WHERE ti.process_instance_id = pi.id AND ti.status = '完了') * 100.0 / 
+            NULLIF((SELECT COUNT(*) FROM task_instance ti WHERE ti.process_instance_id = pi.id), 0) as progress
+        FROM process_instance pi
+        JOIN process p ON pi.process_id = p.id
+        WHERE pi.id = :instance_id
+        """)
+        
+        result = self.session.execute(query, {"instance_id": instance_id})
+        row = result.fetchone()
+        
+        if not row:
+            return None
+        
+        instance = dict(row._mapping)
+        if 'progress' in instance and instance['progress'] is not None:
+            instance['progress'] = round(float(instance['progress']))
+        else:
+            instance['progress'] = 0
+        
+        return instance
+    
+    def get_task_instances_by_process_instance_id(self, instance_id):
+        """
+        指定したプロセスインスタンスIDに関連するタスクインスタンスを取得
+        
+        Args:
+            instance_id: プロセスインスタンスID
+            
+        Returns:
+            タスクインスタンスのリスト（辞書形式）
+        """
+        if not self.connected:
+            raise Exception("データベースに接続されていません")
+            
+        query = text("""
+        SELECT 
+            ti.id, 
+            ti.process_instance_id,
+            t.name,
+            ti.status,
+            ti.assigned_to,
+            ti.started_at,
+            ti.completed_at,
+            t.priority
+        FROM task_instance ti
+        JOIN task t ON ti.task_id = t.id
+        WHERE ti.process_instance_id = :instance_id
+        ORDER BY ti.id
+        """)
+        
+        result = self.session.execute(query, {"instance_id": instance_id})
+        task_instances = []
+        
+        for row in result:
+            task_instance = dict(row._mapping)
+            task_instances.append(task_instance)
+        
+        return task_instances
+        
+    def get_dashboard_summary(self):
+        """ダッシュボード用の概要データを取得"""
         try:
-            return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            try:
-                return datetime.strptime(date_str, "%Y-%m-%d")
-            except ValueError:
-                return date_str  # 変換できない場合は元の文字列を返す
+            summary = {}
+            
+            # SQLAlchemyのSessionを使って結果を取得する
+            # アクティブなプロセスインスタンス数
+            query = text("""
+                SELECT COUNT(*) as active_count
+                FROM process_instance
+                WHERE status != '完了'
+            """)
+            result = self.session.execute(query).fetchone()
+            summary['active_instances_count'] = result[0] if result else 0
+            
+            # 完了したプロセスインスタンス数
+            query = text("""
+                SELECT COUNT(*) as completed_count
+                FROM process_instance
+                WHERE status = '完了'
+            """)
+            result = self.session.execute(query).fetchone()
+            summary['completed_instances_count'] = result[0] if result else 0
+            
+            # 期限切れタスク数
+            query = text("""
+                SELECT COUNT(*) as overdue_count
+                FROM task_instance ti
+                WHERE ti.status != '完了' AND ti.created_at < CURRENT_DATE()
+            """)
+            result = self.session.execute(query).fetchone()
+            summary['overdue_tasks_count'] = result[0] if result else 0
+            
+            # 今日が期限のタスク数
+            query = text("""
+                SELECT COUNT(*) as today_count
+                FROM task_instance ti
+                WHERE ti.status != '完了' AND DATE(ti.created_at) = CURRENT_DATE()
+            """)
+            result = self.session.execute(query).fetchone()
+            summary['today_tasks_count'] = result[0] if result else 0
+            
+            # アクティブなプロセスインスタンス一覧
+            query = text("""
+                SELECT 
+                    pi.id, 
+                    p.name as process_name,
+                    pi.status,
+                    pi.started_at as start_time, 
+                    (SELECT COUNT(*) FROM task_instance ti WHERE ti.process_instance_id = pi.id) as total_tasks,
+                    (SELECT COUNT(*) FROM task_instance ti WHERE ti.process_instance_id = pi.id AND ti.status = '完了') as completed_tasks
+                FROM process_instance pi
+                JOIN process p ON pi.process_id = p.id
+                WHERE pi.status != '完了'
+                ORDER BY pi.started_at DESC
+                LIMIT 10
+            """)
+            
+            result = self.session.execute(query)
+            active_instances = []
+            for row in result:
+                row_dict = dict(row._mapping)
+                total_tasks = row_dict.get('total_tasks') or 1  # 0除算を防ぐ
+                completed_tasks = row_dict.get('completed_tasks') or 0
+                progress = int((completed_tasks / total_tasks) * 100)
+                
+                active_instances.append({
+                    'id': row_dict.get('id'),
+                    'process_name': row_dict.get('process_name'),
+                    'status': row_dict.get('status'),
+                    'started_at': row_dict.get('start_time'),
+                    'progress': progress
+                })
+            summary['active_instances'] = active_instances
+            
+            # 最近のアクティビティ
+            query = text("""
+                SELECT 
+                    ti.updated_at as last_updated, 
+                    p.name as process_name, 
+                    t.name as task_name, 
+                    ti.status
+                FROM task_instance ti
+                JOIN process_instance pi ON ti.process_instance_id = pi.id
+                JOIN process p ON pi.process_id = p.id
+                JOIN task t ON ti.task_id = t.id
+                ORDER BY ti.updated_at DESC
+                LIMIT 15
+            """)
+            result = self.session.execute(query)
+            activities = []
+            for row in result:
+                row_dict = dict(row._mapping)
+                activities.append({
+                    'timestamp': row_dict.get('last_updated'),
+                    'process_name': row_dict.get('process_name'),
+                    'task_name': row_dict.get('task_name'),
+                    'description': f"タスク「{row_dict.get('task_name')}」のステータスが「{row_dict.get('status')}」に変更されました"
+                })
+            summary['activities'] = activities
+            
+            # 緊急タスク一覧
+            query = text("""
+                SELECT 
+                    t.name as task_name, 
+                    p.name as process_name, 
+                    ti.created_at as deadline, 
+                    t.priority
+                FROM task_instance ti
+                JOIN task t ON ti.task_id = t.id
+                JOIN process_instance pi ON ti.process_instance_id = pi.id
+                JOIN process p ON pi.process_id = p.id
+                WHERE ti.status != '完了'
+                ORDER BY 
+                    CASE 
+                        WHEN t.priority = '緊急' THEN 1
+                        WHEN t.priority = '高' THEN 2
+                        WHEN t.priority = '中' THEN 3
+                        WHEN t.priority = '低' THEN 4
+                        ELSE 5
+                    END,
+                    ti.created_at ASC
+                LIMIT 10
+            """)
+            result = self.session.execute(query)
+            urgent_tasks = []
+            for row in result:
+                row_dict = dict(row._mapping)
+                urgent_tasks.append({
+                    'task_name': row_dict.get('task_name'),
+                    'process_name': row_dict.get('process_name'),
+                    'deadline': row_dict.get('deadline'),
+                    'priority': row_dict.get('priority')
+                })
+            summary['urgent_tasks'] = urgent_tasks
+            
+            # プロセスタイプ統計
+            query = text("""
+                SELECT 
+                    p.name as process_type,
+                    COUNT(CASE WHEN pi.status != '完了' THEN 1 ELSE NULL END) as active_count,
+                    COUNT(CASE WHEN pi.status = '完了' THEN 1 ELSE NULL END) as completed_count
+                FROM process_instance pi
+                JOIN process p ON pi.process_id = p.id
+                GROUP BY p.name
+                ORDER BY active_count DESC
+            """)
+            result = self.session.execute(query)
+            process_stats = []
+            for row in result:
+                row_dict = dict(row._mapping)
+                process_stats.append({
+                    'process_type': row_dict.get('process_type', '未分類'),
+                    'active_count': row_dict.get('active_count', 0),
+                    'completed_count': row_dict.get('completed_count', 0)
+                })
+            summary['process_stats'] = process_stats
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"ダッシュボードデータ取得エラー: {str(e)}")
+            return None
 
+    def get_workflow_for_process(self, process_id):
+        """
+        プロセスIDに基づくワークフローデータを取得する
+        
+        Args:
+            process_id: プロセスID
+            
+        Returns:
+            ワークフローデータを含む辞書
+        """
+        try:
+            # プロセスの基本情報を取得
+            query = text("""
+                SELECT id, name, description, version, status
+                FROM process
+                WHERE id = :process_id
+            """)
+            result = self.session.execute(query, {"process_id": process_id}).fetchone()
+            
+            if not result:
+                return None
+            
+            process_row = dict(result._mapping)
+            
+            # プロセスに関連するタスクを取得
+            query = text("""
+                SELECT id, name, description, status, assigned_to as assignee, priority
+                FROM task
+                WHERE process_id = :process_id
+                ORDER BY id
+            """)
+            
+            result = self.session.execute(query, {"process_id": process_id})
+            
+            tasks = []
+            task_ids = []
+            
+            for i, row in enumerate(result):
+                row_dict = dict(row._mapping)
+                # タスクの位置情報を自動生成
+                pos_x = i * 200
+                pos_y = 0
+                
+                tasks.append({
+                    'id': row_dict.get('id'),
+                    'name': row_dict.get('name'),
+                    'description': row_dict.get('description'),
+                    'status': row_dict.get('status'),
+                    'assignee': row_dict.get('assignee'),
+                    'priority': row_dict.get('priority'),
+                    'position_x': pos_x,
+                    'position_y': pos_y
+                })
+                task_ids.append(row_dict.get('id'))
+            
+            # タスク間の遷移を取得（今はダミーデータ）
+            transitions = []
+            
+            # タスクが複数ある場合、単純な順序で遷移を作成
+            for i in range(len(task_ids) - 1):
+                transitions.append({
+                    'from_task_id': task_ids[i],
+                    'to_task_id': task_ids[i + 1],
+                    'condition': ''
+                })
+            
+            workflow_data = {
+                'process_id': process_row.get('id'),
+                'process_name': process_row.get('name'),
+                'tasks': tasks,
+                'transitions': transitions
+            }
+            
+            return workflow_data
+            
+        except Exception as e:
+            logger.error(f"ワークフローデータ取得エラー (プロセスID: {process_id}): {str(e)}")
+            return None
 
-def get_db_instance(db_path="./taskman.db"):
+def get_db_instance(db_config=None):
     """
     データベースインスタンスを取得（シングルトンパターン）
     
     Args:
-        db_path: データベースファイルのパス
+        db_config: データベース設定（host, port, user, password, database）
         
     Returns:
         ProcessMonitorDBのインスタンス
@@ -599,7 +698,7 @@ def get_db_instance(db_path="./taskman.db"):
     global _db_instance
     
     if _db_instance is None:
-        _db_instance = ProcessMonitorDB(db_path)
+        _db_instance = ProcessMonitorDB(db_config)
     
     return _db_instance
 

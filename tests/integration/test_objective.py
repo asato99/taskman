@@ -15,7 +15,7 @@ class TestObjectiveCommandsIntegration:
     実際のデータベースに対して一連のコマンドを実行し、
     コマンド間の相互作用をテストします。
     """
-    
+
     @pytest.fixture(autouse=True)
     def setup(self, test_db):
         """各テストの前に実行されるセットアップ
