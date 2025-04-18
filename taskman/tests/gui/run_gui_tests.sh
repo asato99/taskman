@@ -1,22 +1,61 @@
 #!/bin/bash
 
-# GUIテスト実行スクリプト
+# GUIテスト実行用のスクリプト
+BASE_DIR=$(pwd)
+TEST_DIR="${BASE_DIR}/tests/gui"
 
-# 環境変数の設定
-export PYTHONPATH=$(pwd)
-export TASKMAN_TEST_MODE=1
-export QT_QPA_PLATFORM=offscreen  # ヘッドレス環境でのテスト用
+# ヘッドレステスト用の環境変数設定
+export QT_QPA_PLATFORM=offscreen
 
-# テストの実行
-echo "GUIテストを実行します..."
-cd taskman
-python -m unittest discover -s tests/gui -p "test_*.py" -v
+# ヘルプメッセージ
+show_help() {
+    echo "使用方法: bash run_gui_tests.sh [オプション]"
+    echo ""
+    echo "オプション:"
+    echo "  all                すべてのGUIテストを実行"
+    echo "  process-monitor    プロセスモニターGUIテストを実行"
+    echo "  user-interaction   ユーザー操作GUIテストを実行"
+    echo "  command-execution  コマンド実行GUIテストを実行"
+    echo "  --help, -h         このヘルプメッセージを表示"
+    echo ""
+}
 
-# 終了ステータスの確認
-if [ $? -eq 0 ]; then
-    echo "GUIテスト成功！"
+# ヘルプオプションの処理
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_help
     exit 0
-else
-    echo "GUIテスト失敗。"
-    exit 1
-fi 
+fi
+
+# 引数がない場合はすべてのテストを実行
+if [ -z "$1" ] || [ "$1" = "all" ]; then
+    echo "すべてのGUIテストを実行中..."
+    python -m unittest discover -s "${TEST_DIR}" -p "test_*.py" -v
+    exit $?
+fi
+
+# プロセスモニターGUIテストの実行
+if [ "$1" = "process-monitor" ]; then
+    echo "プロセスモニターGUIテストを実行中..."
+    python -m unittest discover -s "${TEST_DIR}" -p "test_process_monitor.py" -v
+    exit $?
+fi
+
+# ユーザー操作GUIテストの実行
+if [ "$1" = "user-interaction" ]; then
+    echo "ユーザー操作GUIテストを実行中..."
+    python -m unittest discover -s "${TEST_DIR}" -p "test_user_interaction.py" -v
+    exit $?
+fi
+
+# コマンド実行GUIテストの実行
+if [ "$1" = "command-execution" ]; then
+    echo "コマンド実行GUIテストを実行中..."
+    python -m unittest discover -s "${TEST_DIR}" -p "test_command_execution.py" -v
+    exit $?
+fi
+
+# 指定されたテストが見つからない場合
+echo "エラー: 指定されたテスト '$1' は見つかりませんでした。"
+echo "使用可能なオプションは 'all', 'process-monitor', 'user-interaction', 'command-execution' です。"
+echo "詳細については '--help' を使用してください。"
+exit 1 

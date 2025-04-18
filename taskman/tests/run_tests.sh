@@ -31,27 +31,40 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     exit 0
 fi
 
+# GUIテストのみ実行
+if [ "$1" = "gui" ]; then
+    echo "GUIテストを実行中..."
+    cd ${BASE_DIR} && bash tests/gui/run_gui_tests.sh all
+    exit $?
+fi
+
 # テスト実行
-echo "すべてのテストを実行中..."
+if [ -z "$1" ]; then
+    echo "すべてのテストを実行中..."
 
-echo "単体テストを実行中..."
-python -m pytest -xvs ${TEST_DIR}/unit/
+    echo "単体テストを実行中..."
+    python -m pytest -xvs ${TEST_DIR}/unit/
 
-echo ""
-echo "結合テストを実行中..."
-python -m pytest -xvs ${TEST_DIR}/integration/
+    echo ""
+    echo "結合テストを実行中..."
+    python -m pytest -xvs ${TEST_DIR}/integration/
 
-echo ""
-echo "GUIテストを実行中..."
-cd ${BASE_DIR} && QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests/gui -p "test_*.py" -v
+    echo ""
+    echo "GUIテストを実行中..."
+    cd ${BASE_DIR} && bash tests/gui/run_gui_tests.sh all
 
-echo ""
-echo "全テスト完了！"
+    echo ""
+    echo "全テスト完了！"
+    exit 0
+fi
 
 # すべてのテストを実行
 if [ "$1" = "all" ]; then
     echo "すべてのテストを実行中..."
     python -m pytest -xvs ${TEST_DIR}/unit ${TEST_DIR}/integration
+    echo ""
+    echo "GUIテストを実行中..."
+    cd ${BASE_DIR} && bash tests/gui/run_gui_tests.sh all
     exit $?
 fi
 
@@ -66,17 +79,6 @@ fi
 if [ "$1" = "integration" ]; then
     echo "結合テストを実行中..."
     python -m pytest -xvs ${TEST_DIR}/integration
-    exit $?
-fi
-
-# GUIテストのみ実行
-if [ "$1" = "gui" ]; then
-    echo "GUIテストを実行中..."
-    if [ -d "${TEST_DIR}/gui" ]; then
-        python -m pytest -xvs ${TEST_DIR}/gui
-    else
-        echo "GUIテストディレクトリが見つかりません"
-    fi
     exit $?
 fi
 
@@ -128,6 +130,9 @@ fi
 if [ "$1" = "process-monitor" ]; then
     echo "プロセスモニター機能のテストを実行中..."
     python -m pytest -xvs ${TEST_DIR}/integration/test_process_monitor_db.py
+    echo ""
+    echo "プロセスモニターGUI機能のテストを実行中..."
+    cd ${BASE_DIR} && bash tests/gui/run_gui_tests.sh process-monitor
     exit $?
 fi
 
@@ -135,28 +140,15 @@ fi
 if [ -n "$1" ]; then
     # 入力されたファイルパスが存在する場合はそのまま実行
     if [ -f "$1" ]; then
+        echo "指定されたテストファイルを実行中: $1"
         python -m pytest -xvs "$1"
     # テストディレクトリ内のファイルを検索
     elif [ -f "${TEST_DIR}/$1" ]; then
+        echo "指定されたテストファイルを実行中: ${TEST_DIR}/$1"
         python -m pytest -xvs "${TEST_DIR}/$1"
     else
         echo "指定されたテストファイルが見つかりません: $1"
         exit 1
     fi
     exit $?
-fi
-
-# デフォルトではすべての単体テストと結合テストを実行
-echo "すべてのテストを実行中..."
-echo "単体テストを実行中..."
-python -m pytest -xvs ${TEST_DIR}/unit
-echo ""
-echo "結合テストを実行中..."
-python -m pytest -xvs ${TEST_DIR}/integration
-
-echo ""
-echo "GUIテストを実行中..."
-PYTHONPATH=$PYTHONPATH:$(pwd) QT_QPA_PLATFORM=offscreen python -m unittest discover -s taskman/tests/gui -p "test_*.py" -v
-
-echo ""
-echo "全テスト完了！" 
+fi 
